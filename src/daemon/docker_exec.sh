@@ -41,7 +41,23 @@ function _term {
   NOTRAP="yes"
   declare -F sigterm_cleanup_pre && sigterm_cleanup_pre
   kill -TERM "$child_for_exec" 2>/dev/null
+
+  echo "Waiting PID $child_for_exec to terminate"
+  wait "$child_for_exec"
+  return_code=$?
+  echo "PID $child_for_exec: exit $return_code"
+
+  # Let's try first to run a user defined clean post-script
   declare -F sigterm_cleanup_post && sigterm_cleanup_post
+
+  # If needed, it's possible to execute some user defined code if the exec'd process fails
+  if [ "$return_code" -ne 0 ]; then
+    declare -F trap_exec_failure && trap_exec_failure
+  fi
+
+  echo "Bye Bye !"
+  exit $return_code
+
 }
 
 function exec {
@@ -53,12 +69,5 @@ function exec {
   "$@" &
   child_for_exec=$!
   echo "exec: PID $child_for_exec: spawning $*"
-  wait "$child_for_exec"
-  return_code=$?
-  echo "exec: PID $child_for_exec: exit $return_code"
-  # If needed, it's possible to execute some user defined code if the exec'd process fails
-  if [ "$return_code" -ne 0 ]; then
-    declare -F trap_exec_failure && trap_exec_failure
-  fi
-  exit $return_code
+  sleep infinity
 }
